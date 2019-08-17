@@ -1,0 +1,196 @@
+<!doctype HTML>
+<html>
+    <head>
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    </head>
+    <script src="https://aframe.io/releases/0.9.1/aframe.min.js"></script>
+    <script src="https://rawgit.com/jeromeetienne/AR.js/master/aframe/build/aframe-ar.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/randomcolor/0.5.4/randomColor.min.js"></script>
+
+    <body style='margin : 0px; overflow: hidden;'>
+        <script>
+            function randomFloatFromInterval(min, max) {
+                return Math.random() * (max - min) + min;
+            }
+
+            function makeTree(minBranch, maxBranch, minTrunk, maxTrunk, minRadius, maxRadius) {
+                // random sizing
+                const sizeBranch = randomFloatFromInterval(minBranch, maxBranch);
+                const sizeTrunk = randomFloatFromInterval(minTrunk, maxTrunk);
+                const radius = randomFloatFromInterval(minRadius, maxRadius);
+
+                // random colors
+                const foliageColor = randomColor({hue: 'green', luminosity: 'dark', format: 'hex'});
+                const trunkColor = randomColor({hue: 'orange',luminosity: 'dark', format: 'hex'});
+
+                const geo = new THREE.Geometry();
+
+                // create trunk
+                const trunk = new THREE.CylinderGeometry(radius - 0.2 < 0.1 ? 0.1: radius - 0.2, radius, sizeTrunk, 7);
+                trunk.translate(0, sizeTrunk / 2, 0);
+
+                // set trunk color
+                trunk.faces.forEach(f => f.color.set(trunkColor));
+
+                // create foliage
+                const foliage = new THREE.SphereGeometry(sizeBranch, 5, 5);
+
+                // offset vertices
+                foliage.vertices.forEach(v => {
+                    const minFol = -sizeBranch / 10.0;
+                    const maxFol =  sizeBranch / 10.0;
+                    const rx = randomFloatFromInterval(minFol, maxFol);
+                    const ry = randomFloatFromInterval(minFol, maxFol);
+                    const rz = randomFloatFromInterval(minFol, maxFol);
+
+                    v.x += rx;
+                    v.y += ry;
+                    v.z += rz;
+                });
+
+                foliage.verticesNeedUpdate = true;
+
+                foliage.translate(0, sizeTrunk + sizeBranch / 3, 0);
+
+                // set foliage color
+                foliage.faces.forEach(f => f.color.set(foliageColor/*0x42692f*/));
+
+                // merge parts
+                geo.merge(trunk);
+                geo.merge(foliage);
+
+                return geo;
+            }
+
+            <!-- custom component to setup flat shading on a mesh -->
+            AFRAME.registerComponent('flatshader', {
+                init: function() {
+                    this.setupFlatshading();
+                    this.el.addEventListener('object3dset', this.setupFlatshading.bind(this));
+                },
+                setupFlatshading: function() {
+                    const mesh = this.el.getObject3D('mesh');
+
+                    if (!mesh) {
+                        return;
+                    }
+
+                    mesh.traverse(node => {
+                        // recompute face normals
+                        node.geometry.computeFaceNormals();
+
+                        // turn on flat shading
+                        if (node.material) {
+                            node.material.flatShading = true;
+                        }
+                    });
+                }
+            });
+
+            <!-- custom component for tree-->
+            AFRAME.registerGeometry('tree', {
+                schema: {
+                    minSizeBranch: { type: 'number', default: 1.0 },
+                    maxSizeBranch: { type: 'number', default: 2.0 },
+                    minSizeTrunk: { type: 'number', default: 2.0 },
+                    maxSizeTrunk: { type: 'number', default: 5.0 },
+                    minRadius: { type: 'number', default: 0.1 },
+                    maxRadius: { type: 'number', default: 0.3 }
+                },
+
+                init: function (data) {
+                    var geometry = new makeTree(data.minSizeBranch, data.maxSizeBranch, data.minSizeTrunk, data.maxSizeTrunk, data.minRadius, data.maxRadius);
+                    geometry.computeBoundingBox();
+                    geometry.computeFaceNormals();
+                    geometry.computeVertexNormals();
+                    geometry.needsUpdate = true;
+                    this.geometry = geometry;
+                },
+            });
+
+            const treePositions = [
+                '-84.472504 0.500000  44.638977',
+                '-85.198509 0.500000  39.033073',
+                '-77.636505 0.500000  43.633972',
+                '-71.323509 0.500000  43.106972',
+                '-39.570507 0.500000  39.448975',
+                '-55.929504 0.500000  34.588974',
+                '-84.509506 0.500000  50.152077',
+                '-70.183502 0.500000  33.827972',
+                '-63.510506 0.500000  41.892975',
+                '-71.064507 0.500000  12.798027',
+                '-59.312504 0.500000 -55.143974',
+                '-64.102509 0.500000 -35.115974',
+                '-69.021507 0.500000 -47.007973',
+                '-64.970505 0.500000  29.464027',
+                '-29.503506 0.500000 -51.604973',
+                '-78.306503 0.500000  18.071022',
+                '-51.292507 0.500000 -35.888973',
+                '-30.090506 0.500000 -65.503975',
+                '-48.469505 0.500000  26.484024',
+                '-68.959503 0.500000 -53.960976',
+                '-49.280506 0.500000 -49.066975',
+                '-81.817505 0.500000 -32.409973',
+                '-50.110504 0.500000 -56.291973',
+                '-67.892502 0.500000 -18.779976',
+                '-63.519505 0.500000  16.708023',
+                '-53.953506 0.500000  19.884026',
+                '-39.743507 0.500000 -50.313972',
+                ' 50.982494 0.500000  35.158974',
+                ' 57.250496 0.500000  33.295975',
+                ' 15.701494 0.500000  33.212074',
+                '-17.120506 0.500000  36.843079',
+                ' 37.017494 0.500000 -2.864975 ',
+                ' 40.555496 0.500000 -67.953972',
+                ' 10.366494 0.500000 -64.753975',
+                ' 64.408493 0.500000  26.441025',
+                ' 63.024494 0.500000  27.319023',
+                ' 37.240494 0.500000  20.497025',
+                ' 21.570494 0.500000 -51.145973',
+                ' 45.929493 0.500000 -54.282974',
+                ' 27.748495 0.500000 -55.274975',
+                ' 46.790493 0.500000 -44.843975',
+                ' 63.198494 0.500000  29.265022',
+                ' 52.682495 0.500000  24.335022',
+                ' 58.876495 0.500000  28.894028',
+                ' 56.949493 0.500000  30.097023',
+                ' 23.399494 0.500000 -66.745972',
+                '  5.949494 0.500000 -69.868973',
+                ' 13.211494 0.500000 -71.040977'];
+
+            <!-- custom component to insert trees into scene -->
+            AFRAME.registerComponent('treeplacer', {
+                init: function() {
+                    var sceneRoot = document.querySelector('#scene-root');
+
+                    for (var i = 0; i < treePositions.length; i++) {
+                      var newTree = document.createElement('a-entity');
+                      newTree.setAttribute('geometry', "primitive: tree; skipCache: true; minSizeBranch: 2.0; maxSizeBranch: 4.0; minSizeTrunk: 3.0; maxSizeTrunk: 7.0; minRadius: 0.15; maxRadius: 0.35;");
+                      newTree.setAttribute('position', treePositions[i]);
+                      newTree.setAttribute('material', "vertexColors: vertex; metalness: 0.0; roughness: 1.0; flatShading: true;");
+
+                      sceneRoot.appendChild(newTree);
+                    }
+                }
+            });
+
+        </script>
+        <!-- we add detectionMode and matrixCodeType to tell AR.js to recognize barcode markers -->
+        <a-scene embedded arjs='sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3;'>
+
+          <a-assets>
+              <a-asset-item id="castle_scene" src="castle_scene.gltf"></a-asset-item>
+          </a-assets>
+
+          <a-marker id="animated-marker" type='barcode' value='6'>
+              <a-entity id="scene-root" scale="0.04 0.04 0.04" rotation="0 180 0">
+                  <a-entity gltf-model="#castle_scene"></a-entity>
+                  <a-entity treeplacer></a-entity>
+              </a-entity>
+          </a-marker>
+
+          <!-- use this <a-entity camera> to support multiple-markers, otherwise use <a-marker-camera> instead of </a-marker> -->
+          <a-entity camera></a-entity>
+        </a-scene>
+    </body>
+</html>
