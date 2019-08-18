@@ -176,7 +176,7 @@
 
         </script>
         <!-- we add detectionMode and matrixCodeType to tell AR.js to recognize barcode markers -->
-        <a-scene embedded arjs='sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3;'>
+        <a-scene embedded arjs='sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3; debugUIEnabled: false;' vr-mode-ui="enabled: false">
 
           <a-assets>
               <a-asset-item id="castle_scene" src="castle_scene.gltf"></a-asset-item>
