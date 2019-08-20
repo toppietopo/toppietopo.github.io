@@ -13,6 +13,18 @@
                 return Math.random() * (max - min) + min;
             }
 
+            function chopBottom(geo, bottom) {
+                geo.vertices.forEach(v => v.y = Math.max(v.y, bottom));
+            }
+
+            function jitter(geo, offset) {
+                geo.vertices.forEach(v => {
+                    v.x += randomFloatFromInterval(-offset, offset);
+                    v.y += randomFloatFromInterval(-offset, offset);
+                    v.z += randomFloatFromInterval(-offset, offset);
+                });
+            }
+
             function makeTree(minBranch, maxBranch, minTrunk, maxTrunk, minRadius, maxRadius) {
                 // random sizing
                 const sizeBranch = randomFloatFromInterval(minBranch, maxBranch);
@@ -53,7 +65,7 @@
                 foliage.translate(0, sizeTrunk + sizeBranch / 3, 0);
 
                 // set foliage color
-                foliage.faces.forEach(f => f.color.set(foliageColor/*0x42692f*/));
+                foliage.faces.forEach(f => f.color.set(foliageColor));
 
                 // merge parts
                 geo.merge(trunk);
@@ -62,7 +74,79 @@
                 return geo;
             }
 
-            <!-- custom component to setup flat shading on a mesh -->
+            function makeShrub(minFoliage, maxFoliage) {
+                // offsets for parts
+                const offsetFactor = [0.4, 0.75, 0.4];
+                const offsetDirections = [
+                    [-1, -1],
+                    [-1,  1],
+                    [ 1, -1],
+                    [ 1,  1],
+                ];
+
+                // random color
+                const foliageColor = randomColor({hue: '#556B2F', luminosity: 'dark', format: 'hex'});
+
+                const geo = new THREE.Geometry();
+
+                // foliage consists of 4 spheres
+                for (var i = 0; i < 4; i++) {
+                    var foliageSize = randomFloatFromInterval(minFoliage / 4, maxFoliage / 4);
+
+                    const part = new THREE.SphereGeometry(foliageSize, 7, 5);
+                    part.translate(offsetDirections[i][0] * foliageSize * offsetFactor[0],
+                                   foliageSize * offsetFactor[1],
+                                   offsetDirections[i][1] * foliageSize * offsetFactor[2]);
+
+
+                    geo.merge(part);
+                }
+
+                // move vertices a bit
+                jitter(geo, 0.2);
+
+                // flatten bottom
+                chopBottom(geo, 0.0);
+
+                geo.vertices.verticesNeedUpdate = true;
+
+                // set color
+                geo.faces.forEach(f => f.color.set(foliageColor));
+
+                // make wider
+                geo.scale(2, 0.7, 2);
+
+                return geo;
+            }
+
+            function makeStreetLight(height) {
+                const bulbHeight = 0.4;
+                const topHeight = 0.1;
+
+                const geo = new THREE.Geometry();
+
+                // pole
+                const pole = new THREE.CylinderGeometry(0.1, 0.1, height, 6);
+                pole.faces.forEach(f => f.color.set(0x556B2F));
+                pole.translate(0, height / 2, 0);
+                geo.merge(pole);
+
+                // light bulb
+                const light = new THREE.CylinderGeometry(0.6 / Math.sqrt(2), 0.2 / Math.sqrt(2), bulbHeight, 4, 1);
+                light.faces.forEach(f => f.color.set(0xffff00));
+                light.translate(0, height + bulbHeight / 2, 0);
+                geo.merge(light);
+
+                // top
+                const top =  new THREE.CylinderGeometry(0.6 / Math.sqrt(2), 0.6 / Math.sqrt(2), topHeight, 4, 1);
+                top.faces.forEach(f => f.color.set(0x556B2F));
+                top.translate(0, height + bulbHeight + topHeight / 2, 0);
+                geo.merge(top);
+
+                return geo;
+            }
+
+            // custom component to setup flat shading on a mesh
             AFRAME.registerComponent('flatshader', {
                 init: function() {
                     this.setupFlatshading();
@@ -76,9 +160,6 @@
                     }
 
                     mesh.traverse(node => {
-                        // recompute face normals
-                        node.geometry.computeFaceNormals();
-
                         // turn on flat shading
                         if (node.material) {
                             node.material.flatShading = true;
@@ -87,7 +168,7 @@
                 }
             });
 
-            <!-- custom component for tree-->
+            // custom component for tree
             AFRAME.registerGeometry('tree', {
                 schema: {
                     minSizeBranch: { type: 'number', default: 1.0 },
@@ -103,7 +184,6 @@
                     geometry.computeBoundingBox();
                     geometry.computeFaceNormals();
                     geometry.computeVertexNormals();
-                    geometry.needsUpdate = true;
                     this.geometry = geometry;
                 },
             });
@@ -158,7 +238,7 @@
                 '  5.949494 0.500000 -69.868973',
                 ' 13.211494 0.500000 -71.040977'];
 
-            <!-- custom component to insert trees into scene -->
+            // custom component to insert trees into scene
             AFRAME.registerComponent('treeplacer', {
                 init: function() {
                     var sceneRoot = document.querySelector('#scene-root');
@@ -174,8 +254,158 @@
                 }
             });
 
+            // custom component for shrub
+            AFRAME.registerGeometry('shrub', {
+                schema: {
+                    minSizeFoliage: { type: 'number', default: 0.3 },
+                    maxSizeFoliage: { type: 'number', default: 0.5 }
+                },
+
+                init: function (data) {
+                    var geometry = new makeShrub(data.minSizeFoliage, data.maxSizeFoliage);
+                    geometry.computeBoundingBox();
+                    geometry.computeFaceNormals();
+                    geometry.computeVertexNormals();
+                    this.geometry = geometry;
+                },
+            });
+
+            const shrubPositions = [
+            '-57.509 0.500  9.047',
+            '-55.801 0.500 14.306',
+            '-66.354 0.500  9.354',
+            '-71.954 0.500  9.798',
+            '-76.667 0.500 12.018',
+            '-52.250 0.500 18.950',
+            '-52.591 0.500 10.583',
+            '-50.747 0.500 15.433',
+            '-76.838 0.500 69.424',
+            '-56.006 0.500 64.916',
+            '-65.261 0.500 63.892',
+            '-72.296 0.500 66.829',
+            '-68.949 0.500 68.673',
+            '-78.921 0.500 66.760',
+            '-59.148 0.500 62.833',
+            '-68.847 0.500 64.472',
+            '-80.458 0.500 68.912',
+            '-64.202 0.500 67.409',
+            '-59.353 0.500 67.068',
+            ' 32.989 0.500 45.587',
+            ' 41.253 0.500 36.435',
+            ' 46.376 0.500 31.039',
+            '-47.298 0.500 18.131',
+            ' 27.901 0.500 48.593',
+            ' 33.706 0.500 49.754',
+            ' 35.277 0.500 40.260',
+            ' 42.517 0.500 33.157',
+            ' 46.478 0.500 35.069',
+            ' 37.975 0.500 36.674',
+            '-49.176 0.500 13.247',
+            '-31.828 0.500 63.482',
+            '-24.998 0.500 59.794',
+            '-14.821 0.500 58.223',
+            ' -3.347 0.500 55.423',
+            ' 10.723 0.500 54.398',
+            ' 21.583 0.500 51.188',
+            '-49.279 0.500 66.351',
+            '-42.107 0.500 64.643',
+            '-36.575 0.500 60.818',
+            '-20.866 0.500 62.731',
+            '-12.533 0.500 61.160',
+            ' -5.840 0.500 59.384',
+            '-46.956 0.500 63.482',
+            '-20.319 0.500 57.881',
+            '  0.717 0.500 59.521',
+            '  4.883 0.500 57.130',
+            ' 16.426 0.500 56.720',
+            ' 10.006 0.500 57.881',
+            ' 21.549 0.500 55.559',
+            ' 27.969 0.500 52.691',
+            ' 29.130 0.500 55.832',
+            ' 33.296 0.500 53.510',
+            ' 16.426 0.500 53.169',
+            '-30.974 0.500 59.657',
+            ' -9.494 0.500 56.754',
+            '-26.842 0.500 62.697',
+            '-40.570 0.500 61.604',
+            ' 56.962 0.500 28.990',
+            ' 66.183 0.500 25.985',
+            ' 76.496 0.500 26.532',
+            ' 51.123 0.500 32.474',
+            ' 60.958 0.500 26.736',
+            ' 59.319 0.500 32.610',
+            ' 63.280 0.500 29.878',
+            ' 70.656 0.500 26.600',
+            ' 69.973 0.500 30.015',
+            ' 54.367 0.500 33.669',
+            ' 65.261 0.500 32.200',
+            ' 74.311 0.500 30.083',
+            ' 80.184 0.500 28.956',
+            ' 79.228 0.500 25.336',
+            ' 62.017 0.500 24.312'];
+
+            // custom component to insert shrubs into scene
+            AFRAME.registerComponent('shrubplacer', {
+                init: function() {
+                    var sceneRoot = document.querySelector('#scene-root');
+
+                    for (var i = 0; i < shrubPositions.length; i++) {
+                      var newShrub = document.createElement('a-entity');
+                      newShrub.setAttribute('geometry', "primitive: shrub; skipCache: true; minSizeFoliage: 3.0; maxSizeFoliage: 5.0;");
+                      newShrub.setAttribute('position', shrubPositions[i]);
+                      newShrub.setAttribute('material', "vertexColors: vertex; metalness: 0.0; roughness: 1.0; flatShading: true;");
+
+                      sceneRoot.appendChild(newShrub);
+                    }
+                }
+            });
+
+            // custom component for street light
+            AFRAME.registerGeometry('streetlight', {
+                schema: {
+                    height: { type: 'number', default: 3.0 }
+                },
+
+                init: function (data) {
+                    var geometry = new makeStreetLight(data.height);
+                    geometry.computeBoundingBox();
+                    geometry.computeFaceNormals();
+                    geometry.computeVertexNormals();
+                    this.geometry = geometry;
+                },
+            });
+
+            const streetLightPositions = [
+                '-45.475506 0.500000  -9.288975',
+                '-35.491505 0.500000 -47.147972',
+                ' -0.019506 0.500000  38.012077',
+                ' 10.922495 0.500000 -52.472977',
+                ' -3.706506 1.500000 -58.382973',
+                ' -5.205505 1.500000 -67.025978',
+                '-19.298506 1.500000 -56.652973',
+                '-19.861506 1.500000 -64.809975',
+                ' -2.259506 1.500000 -50.259975',
+                '-18.858505 1.500000 -48.884975',
+                ' 32.023495 0.500000 -18.149975',
+                ' 17.086494 0.500000 -72.885971'];
+
+            // custom component to insert stree lights into scene
+            AFRAME.registerComponent('streelightplacer', {
+                init: function() {
+                    var sceneRoot = document.querySelector('#scene-root');
+
+                    for (var i = 0; i < shrubPositions.length; i++) {
+                      var newStreetLight = document.createElement('a-entity');
+                      newStreetLight.setAttribute('geometry', "primitive: streetlight; height: 3.0;");
+                      newStreetLight.setAttribute('position', streetLightPositions[i]);
+                      newStreetLight.setAttribute('material', "vertexColors: vertex; metalness: 0.0; roughness: 1.0; flatShading: true;");
+
+                      sceneRoot.appendChild(newStreetLight);
+                    }
+                }
+            });
         </script>
-        <!-- we add detectionMode and matrixCodeType to tell AR.js to recognize barcode markers -->
+        <!-- add detectionMode and matrixCodeType to tell AR.js to recognize barcode markers -->
         <a-scene embedded arjs='sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3; debugUIEnabled: false;' vr-mode-ui="enabled: false">
 
           <a-assets>
@@ -184,8 +414,10 @@
 
           <a-marker id="animated-marker" type='barcode' value='6'>
               <a-entity id="scene-root" scale="0.04 0.04 0.04" rotation="0 180 0">
-                  <a-entity gltf-model="#castle_scene"></a-entity>
+                  <a-entity gltf-model="#castle_scene" flatshader></a-entity>
                   <a-entity treeplacer></a-entity>
+                  <a-entity shrubplacer></a-entity>
+                  <a-entity streelightplacer></a-entity>
               </a-entity>
           </a-marker>
 
